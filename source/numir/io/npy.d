@@ -1,7 +1,7 @@
 /++
 NumPy file IO package
  +/
-module numir.io;
+module numir.io.npy;
 
 import std.system : endian, Endian;
 import std.format : format, formattedRead;

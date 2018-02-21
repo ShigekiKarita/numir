@@ -1,0 +1,14 @@
+.dub
+docs.json
+__dummy.html
+docs/
+nonnegative_matrix_factorization.so
+nonnegative_matrix_factorization.dylib
+nonnegative_matrix_factorization.dll
+nonnegative_matrix_factorization.a
+nonnegative_matrix_factorization.lib
+nonnegative_matrix_factorization-test-*
+*.exe
+*.o
+*.obj
+*.lst

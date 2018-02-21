@@ -1,0 +1,13 @@
+{
+	"name": "audio_separation_nmf",
+	"authors": [
+		"Shigeki Karita"
+	],
+	"description": "A minimal D application.",
+    "dependencies": {
+        "ggplotd": "~>1.1.4",
+        "numir": { "path": "../.." }
+    },
+	"copyright": "Copyright © 2018, karita",
+	"license": "BSL-1.0"
+}
