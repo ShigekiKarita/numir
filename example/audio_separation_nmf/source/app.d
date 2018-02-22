@@ -12,7 +12,7 @@ import std.net.curl : download;
 import std.complex : abs, arg, expi;
 import std.typecons : tuple;
 
-import mir.math.common : log;
+import mir.math : log, sum, sqrt;
 import mir.ndslice : sliced, ndarray, map, transposed, reversed, slice, isSlice, maxPos;
 import lubeck : mtimes;
 import ggplotd.ggplotd : GGPlotD;
@@ -32,7 +32,7 @@ Params:
     y = input mixed matrix with the shape of (ntime x nfreq)
     nbasis = number of basis vectors
     maxiter = the maximum number of iterations
-    eps = the minimum value of error
+    eps = numerical stability factor in the denominator
 
 Returns:
     matrix tuple [h, u] where
@@ -51,6 +51,12 @@ auto nmf(S)(S y, size_t nbasis, size_t maxiter=100, double eps=1e-21) if (isSlic
         h[] *= y.mtimes(u.transposed) / (h.mtimes(u).mtimes(u.transposed) + eps);
         u[] *= h.transposed.mtimes(y) / (h.transposed.mtimes(h).mtimes(u) + eps);
         u[] /= u.maxPos.first;
+        if (i % 10 == 0)
+        {
+            auto residual = y - h.mtimes(u);
+            auto loss = sum!"fast"(residual * residual).sqrt;
+            writefln!"L2 loss: %f at iter %d / %d"(loss, i, maxiter);
+        }
     }
     return tuple!("h", "u")(h, u);
 }
@@ -116,8 +122,6 @@ void main()
     {
         auto y = factorized.h[0..$, k..k+1].mtimes(factorized.u[k..k+1, 0..$]) * phase;
         auto ydouble = concatenate!1(y, y.reversed!1);
-        y.shape.writeln;
-        ydouble.shape.writeln;
         auto yk = istft(y).map!"a.re";
         facwav = facwav.plot1d(yk, cast(double) k / nbasis, 0.1);
         wav.data = yk.map!(a => a.to!short).array;
