@@ -13,7 +13,9 @@ Params: n = length of window
 
 Returns: window weight slice
 
-See_Also: https://ccrma.stanford.edu/~jos/sasp/Blackman_Window_Family.html
+See_Also:
+    https://ccrma.stanford.edu/~jos/sasp/Blackman_Window_Family.html
+    https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.blackman.html
  +/
 pure nothrow @nogc @safe
 auto blackmanWindow(size_t n, double a0=0.42, double a1=0.5, double a2=0.08)
@@ -32,7 +34,9 @@ Params: n = length of window
 
 Returns: window weight slice
 
-See_Also: https://ccrma.stanford.edu/~jos/sasp/Generalized_Hamming_Window_Family.html
+See_Also:
+    https://ccrma.stanford.edu/~jos/sasp/Generalized_Hamming_Window_Family.html
+    https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.hann.html
  +/
 pure nothrow @nogc @safe
 auto hanningWindow(size_t n, double a = 0.5, double b = 0.25)
@@ -43,6 +47,15 @@ auto hanningWindow(size_t n, double a = 0.5, double b = 0.25)
     return a - b / 2 * map!cos(t * iota(n));
 }
 
+/++
+Split (window and stride) time frames for FFT or convolutions
+
+Params:
+     xs = input slice
+     width = length of each segment
+     stride = the number of skipped frames between the head of split slices
+Returns: slice of split (windowed and strided) slices
+ +/
 pure nothrow @safe @nogc
 auto splitFrames(Xs)(Xs xs, size_t width, size_t stride)
 {
@@ -61,24 +74,50 @@ unittest
 }
 
 /++
+Check whether the Constant OverLap Add (COLA) constraint (STFT inversible) is met
++/
+bool checkCOLA(W)(W window, size_t nperseg, size_t noverlap, double tol=1e-10)
+in
+{
+    import numir.core : Ndim;
+    assert(nperseg > 1);
+    assert(nperseg > noverlap);
+    static assert(Ndim!window == 1);
+    assert(window.length == nperseg);
+} 
+do
+{
+    auto stride = nperseg - noverlap;
+    auto binsums = iota(nperseg / stride).map!(i => window[iota([stride], i*stride)]);
+}
+
+
+/++
 Short time Fourie transform
 
 Params:
-     xs = input 1d sequence
-     width = short-time frame width for each FFT
-     stride = (default framelen / 2) short-time frame stride length for each FFT
+    xs = input 1d sequence
+    nperseg = (default 256) short-time frame width for each FFT segment
+    noverlap = (default nperseg / 2) short-time frame overlapped length for each FFT segment
+See_Also:
+    https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.stft.html
  +/
-auto stft(alias windowFun=hanningWindow, Xs)(Xs xs, size_t width=1024, size_t stride=0)
+auto stft(alias windowFun=hanningWindow, Xs)(Xs xs, size_t nperseg=256, size_t noverlap=0)
+in 
+{
+    assert(noverlap < nperseg);
+}
+do 
 {
     import std.numeric : fft;
     import std.complex : Complex;
     import numir : empty;
 
-    if (stride == 0) stride = width / 2; // default value
-    auto frames = splitFrames(xs, width, stride);
-    immutable nfreq = width; // for rfft: / 2 + 1;
+    if (noverlap == 0) noverlap = nperseg / 2; // default value
+    auto frames = splitFrames(xs, nperseg, nperseg - noverlap);
+    immutable nfreq = nperseg; // for rfft: / 2 + 1;
     auto ret = empty!(Complex!double)(frames.length, nfreq);
-    auto window = windowFun(width);
+    auto window = windowFun(nperseg);
     foreach (i; 0 .. frames.length) {
         fft(frames[i] * window, ret[i]);
     }
