@@ -4,14 +4,17 @@ Signal processing package
 
 module numir.signal;
 
-import mir.ndslice.slice : isSlice, DeepElementType;
-import std.traits : isFloatingPoint;
+import mir.ndslice.slice : isSlice;
 import numir.core : Ndim;
 
 /++
 Classic Blackman window slice generator
 
-Params: n = length of window
+Params:
+     n = length of window
+     a0 = window parameter
+     a1 = window parameter
+     a2 = window parameter
 
 Returns: window weight slice
 
@@ -33,8 +36,10 @@ auto blackman(size_t n, double a0=0.42, double a1=0.5, double a2=0.08)
 /++
 Hann window slice generator
 
-Params: n = length of window
-
+Params:
+    n = length of window
+    a = window parameter
+    b = window parameter
 Returns: window weight slice
 
 See_Also:
@@ -146,29 +151,28 @@ Computes the inverse short time Fourier transform
 
 Params:
     xs = input 2d complex slice with the shape (ntimes, nfreq)
-    nperseg = (default 256) short-time frame width for each FFT segment
     noverlap = (default nperseg / 2) short-time frame overlapped length for each FFT segment
 Returns 1d real slice with the shape (ntimes,)
 See_Also:
     https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.stft.html
  +/
-auto istft(alias windowFun=hann, Xs)(Xs xs, size_t noverlap=0)
+auto istft(alias windowFun=hann, Xs)(Xs xs, size_t noverlap)
     if (isSlice!Xs && Ndim!Xs == 2)
 {
     import std.array : array;
     import std.numeric : inverseFft;
     import std.complex : Complex;
     import mir.ndslice.topology : iota;
-    import mir.ndslice.allocation : slice, ndarray, sliced;
-    import numir : empty;
+    import mir.ndslice.allocation : slice;
+    import numir : empty, zeros;
 
     auto nperseg = xs.length!1; // = nfreqs
-    if (noverlap == 0) noverlap = nperseg / 2; // default value
     auto nstride = nperseg - noverlap;
     auto ntimes = nperseg + (xs.length!0 - 1) * nstride;
 
     auto ret = empty!(Complex!double)(ntimes);
-    auto windowsum = empty(ntimes);
+    ret[] = 0;
+    auto windowsum = zeros(ntimes);
     auto window = windowFun(nperseg).slice;
     auto windowsquare = slice(window * window);
     auto invbuf = empty!(Complex!double)(nperseg);
@@ -188,6 +192,13 @@ auto istft(alias windowFun=hann, Xs)(Xs xs, size_t noverlap=0)
         }
     }
     return ret;
+}
+
+///ditto
+auto istft(alias windowFun=hann, Xs)(Xs xs)
+    if (isSlice!Xs && Ndim!Xs == 2)
+{
+    return istft!(windowFun, Xs)(xs, xs.length!1 / 2); // default noverlap
 }
 
 /// test stft-istft health
