@@ -5,9 +5,11 @@ See_Also: https://github.com/r9y9/julia-nmf-ss-toy
 +/
 
 import std.stdio;
+import std.array;
+import std.format : format;
 import std.file : exists;
 import std.net.curl : download;
-import std.complex : abs;
+import std.complex : abs, arg, expi;
 import std.typecons : tuple;
 
 import mir.math.common : log;
@@ -65,14 +67,12 @@ void main()
 
     // plot waveform
     auto xs = wav.data.sliced;
-    GGPlotD().plot1d(xs, 1.0, 0.1).save("wav.png");
+    GGPlotD().plot1d(xs, 1.0, 0.1).save("mixed.png");
 
     // STFT
     auto zs = stft(xs, 512); // take real part
-    auto ixs = istft(zs);
-    writeln(xs[0..10]);
-    writeln(ixs[0..10]);
-    auto ys = zs[0..$, 0..257].map!abs.slice;
+    auto ys = zs[0..$, 0..$/2].map!abs.slice;
+    auto phase = zs[0..$, 0..$/2].map!arg.map!expi.slice;
 
     // plot STFT result
     auto logy = ys.map!log.reversed!(1).transposed;
@@ -80,17 +80,7 @@ void main()
         .put("white-cornflowerBlue-crimson".colourGradient!XYZ)
         .put("time".xaxisLabel)
         .put("freq".yaxisLabel)
-        .save("spectogram.png");
-
-    // plot STFT window
-    GGPlotD()
-        .plot1d(blackman(1024), 0.0)
-        .plot1d(hann(1024), 1.0)
-        .put("time".xaxisLabel)
-        .put("gain".yaxisLabel)
-        .put("cornflowerBlue-crimson".colourGradient!XYZ)
-        .save("windows.png");
-
+        .save("mixed-stft.png");
 
     // NMF
     auto nbasis = 4;
@@ -118,4 +108,23 @@ void main()
         .put("freq".xaxisLabel)
         .put("gain".yaxisLabel)
         .save("freq_basis.png");
+
+    // generate separated audio
+    auto info = wav.now;
+    GGPlotD facwav;
+    foreach (k; 0..nbasis)
+    {
+        auto y = factorized.h[0..$, k..k+1].mtimes(factorized.u[k..k+1, 0..$]) * phase;
+        auto ydouble = concatenate!1(y, y.reversed!1);
+        y.shape.writeln;
+        ydouble.shape.writeln;
+        auto yk = istft(y).map!"a.re";
+        facwav = facwav.plot1d(yk, cast(double) k / nbasis, 0.1);
+        wav.data = yk.map!(a => a.to!short).array;
+        wav.save("%d.wav".format(k));
+    }
+    facwav
+        .put("time".xaxisLabel)
+        .put("gain".yaxisLabel)
+        .save("factorized.png");
 }
