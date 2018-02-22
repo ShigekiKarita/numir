@@ -20,12 +20,12 @@ import ggplotd.colourspace : XYZ;
 
 import numir;
 import plot : plot1d, plot2d;
-import signal : blackmanWindow, hanningWindow, stft;
+import numir.signal : blackman, hann, stft, istft;
 import dffmpeg : Audio;
 
 /++
 Non-negative matrix factorization
- 
+
 Params:
     y = input mixed matrix with the shape of (ntime x nfreq)
     nbasis = number of basis vectors
@@ -34,7 +34,7 @@ Params:
 
 Returns:
     matrix tuple [h, u] where
-    
+
     argmin_{h, u} ||y - h \times u||_2
 
     h = shape (ntime x nbasis)
@@ -65,11 +65,14 @@ void main()
 
     // plot waveform
     auto xs = wav.data.sliced;
-    GGPlotD().plot1d(xs).save("wav.png");
+    GGPlotD().plot1d(xs, 1.0, 0.1).save("wav.png");
 
     // STFT
-    auto zs = xs.stft(512)[0..$, 0..257]; // take real part
-    auto ys = zs.map!abs.slice;
+    auto zs = stft(xs, 512); // take real part
+    auto ixs = istft(zs);
+    writeln(xs[0..10]);
+    writeln(ixs[0..10]);
+    auto ys = zs[0..$, 0..257].map!abs.slice;
 
     // plot STFT result
     auto logy = ys.map!log.reversed!(1).transposed;
@@ -80,8 +83,9 @@ void main()
         .save("spectogram.png");
 
     // plot STFT window
-    GGPlotD().plot1d(blackmanWindow(1024), 0.0)
-        .plot1d(hanningWindow(1024), 1.0)
+    GGPlotD()
+        .plot1d(blackman(1024), 0.0)
+        .plot1d(hann(1024), 1.0)
         .put("time".xaxisLabel)
         .put("gain".yaxisLabel)
         .put("cornflowerBlue-crimson".colourGradient!XYZ)
